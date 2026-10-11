@@ -16,6 +16,14 @@
         "2.11.3",
         "2.11.2"
       ]
+    },
+    "edge": {
+      "backend": [
+        "edge-c6a3f0f"
+      ],
+      "frontend": [
+        "edge-c6a3f0f"
+      ]
     }
   }
 }
