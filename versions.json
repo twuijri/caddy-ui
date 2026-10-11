@@ -38,6 +38,14 @@
         "edge-c120722",
         "edge-c6a3f0f"
       ]
+    },
+    "beta": {
+      "backend": [
+        "beta-72d0051"
+      ],
+      "frontend": [
+        "beta-72d0051"
+      ]
     }
   }
 }
