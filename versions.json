@@ -25,10 +25,12 @@
     },
     "edge": {
       "backend": [
+        "edge-c120722",
         "edge-059bb4b",
         "edge-c6a3f0f"
       ],
       "frontend": [
+        "edge-c120722",
         "edge-c6a3f0f"
       ]
     }
