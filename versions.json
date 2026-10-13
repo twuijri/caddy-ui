@@ -65,9 +65,11 @@
     },
     "beta": {
       "backend": [
+        "beta-77aa05e",
         "beta-72d0051"
       ],
       "frontend": [
+        "beta-77aa05e",
         "beta-72d0051"
       ]
     }
