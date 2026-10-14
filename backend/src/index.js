@@ -31,11 +31,15 @@ import { initUptimeHistory } from './uptimeHistory.js';
 import { getUpdateInfo, noteFrontendVersion, startUpdateCheck } from './updateCheck.js';
 import { startUpstreamMonitor } from './upstreamMonitor.js';
 import { getEnabledLanguages } from './languages.js';
+import hybridRouter, { hybridEnabled, hybridGuard, startHybridReconciler } from './hybrid.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const CADDY_ADMIN_URL = process.env.CADDY_ADMIN_URL || 'http://caddy:2019';
 const APP_VERSION = process.env.APP_VERSION || 'dev';
+if (hybridEnabled() && (!process.env.CADDY_UI_USER || !process.env.CADDY_UI_PASSWORD || !process.env.JWT_SECRET)) {
+    throw new Error('Hybrid mode requires CADDY_UI_USER, CADDY_UI_PASSWORD and JWT_SECRET');
+}
 
 app.set('trust proxy', 1);
 app.use(cors());
@@ -88,7 +92,10 @@ app.get('/api/version', (req, res) => {
 });
 
 // Instance, settings, and custom-theme routes require auth but not instance middleware
-app.use('/api/instances', authMiddleware, instancesRouter);
+app.use('/api/instances', authMiddleware, (req, res, next) => {
+    if (hybridEnabled() && req.method !== 'GET') return res.status(409).json({ error: 'Hybrid mode uses one deployment-configured instance' });
+    next();
+}, instancesRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/custom-themes', authMiddleware, customThemesRouter);
 
@@ -107,6 +114,8 @@ app.get('/api/metrics/raw', publicMetrics ? (req, res, next) => next() : authMid
 
 // All other /api/* routes require auth if enabled
 app.use('/api', authMiddleware);
+app.use('/api/hybrid', hybridRouter);
+app.use('/api', hybridGuard);
 
 app.use('/api/caddyfile', caddyfileRouter);
 app.use('/api/routes', routesRouter);
@@ -134,6 +143,7 @@ await initUptimeHistory();
 startUpstreamMonitor();
 startRouteMonitor();
 startUpdateCheck();
+startHybridReconciler();
 
 app.listen(PORT, () => {
     logger.info(`Caddy UI backend running`, { port: PORT, version: APP_VERSION });

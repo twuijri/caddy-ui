@@ -6,6 +6,7 @@ import { describeReadError, listContainerDir, readContainerDir, readContainerFil
 import logger from '../logger.js';
 import { AppError, asAppError } from '../AppError.js';
 import { sendAppError } from '../errorReporting.js';
+import { loadedCertificates } from '../loadedCertificates.js';
 
 const router = Router();
 
@@ -140,6 +141,7 @@ async function getCerts(containerName, certsPath, adminUrl) {
 router.get('/', async (req, res) => {
     const certsPath = join(req.instance.dataPath, 'certificates');
     const certs = await getCerts(req.instance.containerName, certsPath, req.instance.adminUrl);
+    certs.push(...await loadedCertificates(req.instance));
     logger.info(`TLS certs listed`, { count: certs.length });
     res.json(certs);
 });

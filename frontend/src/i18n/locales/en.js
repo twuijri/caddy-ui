@@ -1,4 +1,14 @@
 export default {
+    hybrid: {
+        modeNotice: 'Hybrid mode: use Hybrid Sites for manual changes and uploads. Existing routes are read-only; edit Docker label sites in Dockhand. Advanced configuration controls are blocked to protect label-owned sites.',
+        title: 'Hybrid Sites', help: 'Docker labels remain the source of truth for existing sites. Manual sites are merged by docker-proxy, never loaded over them.',
+        manual: 'Add or update a manual site', domain: 'Domain', upstream: 'Upstream (container:port)', certificate: 'Certificate', automatic: 'Automatic HTTPS',
+        networkHelp: 'The upstream container must share a reachable network with Caddy. Saving the same domain updates it; to rename, add the new domain and remove the old one.',
+        status: 'Configuration status', actions: 'Actions', edit: 'Edit', labels: 'Docker label-owned sites', labelHelp: 'Read-only here. Edit these in Dockhand. Stopped containers reserve their hostnames too.',
+        upload: 'Import certificate', key: 'Private key', keyHelp: 'Upload a matching PEM certificate and key. Private keys are stored with owner-only permissions and never returned. Importing does not assign a certificate to a site.',
+        pendingHelp: 'Saved. Docker-proxy will merge the change on its next poll. Check configuration status and live routes before assuming it is applied.',
+        expiry: 'Expires {{date}} ({{days}} days)', confirmDelete: 'Remove manual site {{domain}}? Its certificate files will be retained.',
+    },
     test: {
         languageLoaded: 'English loaded',
     },
