@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { mkdir, readFile, writeFile, rename, readdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { X509Certificate, createPrivateKey, randomUUID } from 'node:crypto';
 import { caddyGet } from './caddy.js';
 import { validCertificateFiles } from './middleware/certificateUpload.js';
+import { discoverCertificates, publicCertificate, renderCertificate, selectCertificate, validCertificateId } from './hybridCertificates.js';
 
 export const hybridEnabled = () => process.env.CADDY_UI_HYBRID === 'true';
 const root = () => '/hybrid';
@@ -23,7 +24,7 @@ export function validateSite(site) {
     if (typeof site.upstream !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*:[0-9]{1,5}$/.test(site.upstream)) throw new Error('Upstream must be container-name:port or IPv4:port');
     const port = Number(site.upstream.split(':').at(-1));
     if (port < 1 || port > 65535) throw new Error('Invalid upstream port');
-    if (site.certificate && !/^[0-9a-f-]{36}$/.test(site.certificate)) throw new Error('Invalid certificate selection');
+    if (site.certificate && (typeof site.certificate !== 'string' || !validCertificateId(site.certificate))) throw new Error('Invalid certificate selection');
     return { domain: site.domain, upstream: site.upstream, certificate: site.certificate || '' };
 }
 export function certificatePair(pem, key) {
@@ -65,7 +66,7 @@ async function inventory() {
 export function renderState(data, labels) {
     const header = marker + Buffer.from(JSON.stringify(data)).toString('base64');
     const blocks = data.sites.filter(s => !collides(s.domain, labels)).map(s => {
-        const tls = s.certificate ? `tls /hybrid/certs/${s.certificate}/cert.pem /hybrid/certs/${s.certificate}/key.pem` : '';
+        const tls = renderCertificate(s);
         return `${s.domain} {\n    vars ui_revision ${data.revision}\n    ${tls}\n    log\n    reverse_proxy ${s.upstream}\n}`;
     });
     return `${header}\n{\n    admin 0.0.0.0:2019\n    metrics\n    log {\n        output file /logs/caddy.log\n        format json\n    }\n}\n${blocks.join('\n\n')}\n`;
@@ -88,19 +89,6 @@ async function commit(data, labels) {
     await writeFile(temp, content, { mode: 0o600 });
     await rename(temp, path);
 }
-async function certificates() {
-    const dir = join(root(), 'certs');
-    let ids;
-    try { ids = await readdir(dir); } catch (err) { if (err.code === 'ENOENT') return []; throw err; }
-    const result = [];
-    for (const id of ids.filter(id => /^[0-9a-f-]{36}$/.test(id))) {
-        try {
-            const cert = new X509Certificate(await readFile(join(dir, id, 'cert.pem')));
-            result.push({ id, subject: cert.subject, names: cert.subjectAltName, validTo: cert.validTo, daysRemaining: Math.floor((Date.parse(cert.validTo) - Date.now()) / 86400000) });
-        } catch { /* An interrupted upload is never selectable. */ }
-    }
-    return result;
-}
 function revisions(value, found = new Set()) {
     if (!value || typeof value !== 'object') return found;
     if (value.handler === 'vars' && value.ui_revision) found.add(value.ui_revision);
@@ -110,7 +98,7 @@ function revisions(value, found = new Set()) {
 export function hybridGuard(req, res, next) {
     if (!hybridEnabled() || ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
     if (/^\/(caddyfile|routes|tls|metrics|logs)(\/|$)/.test(req.path)) {
-        return res.status(409).json({ error: 'Docker labels own this configuration. Use Hybrid Sites for manual sites and certificate uploads; edit label-owned sites in Dockhand.' });
+        return res.status(409).json({ error: 'Docker labels own this configuration. Use Hybrid Sites for manual sites and certificate uploads; edit label-owned sites in your Docker deployment configuration.' });
     }
     next();
 }
@@ -125,9 +113,10 @@ router.get('/', async (req, res) => {
     const labels = labelHosts(containers);
     let active = null;
     try { active = revisions(await caddyGet('/config/', admin())); } catch { /* report unknown */ }
+    const catalog = await discoverCertificates({ savedSites: data.sites });
     res.json({
-        sites: data.sites.map(s => ({ ...s, status: collides(s.domain, labels) ? 'label-conflict' : active === null ? 'unknown' : active.has(data.revision) ? 'applied' : 'pending' })),
-        labels: [...labels], certificates: await certificates(),
+        sites: data.sites.map(s => ({ domain: s.domain, upstream: s.upstream, certificate: s.certificate, certificateSource: s.certificateRef?.source || (s.certificate ? 'imported' : 'automatic'), status: collides(s.domain, labels) ? 'label-conflict' : active === null ? 'unknown' : active.has(data.revision) ? 'applied' : 'pending' })),
+        labels: [...labels], certificates: catalog.entries.map(publicCertificate), certificateWarnings: catalog.warnings,
         upstreams: containers.filter(c => c.State === 'running').map(c => ({ name: (c.Names?.[0] || '').replace(/^\//, ''), networks: Object.keys(c.NetworkSettings?.Networks || {}) })),
     });
 });
@@ -135,13 +124,12 @@ router.post('/sites', async (req, res) => {
     const site = validateSite(req.body);
     await serial(async () => {
         const labels = labelHosts(await inventory());
-        if (collides(site.domain, labels)) throw new Error('This hostname belongs to Docker labels. Edit it in Dockhand.');
-        if (site.certificate) {
-            const cert = new X509Certificate(await readFile(join(root(), 'certs', site.certificate, 'cert.pem')));
-            if (!cert.checkHost(site.domain)) throw new Error('Certificate does not cover this hostname');
-            if (Date.parse(cert.validTo) <= Date.now()) throw new Error('Certificate has expired');
-        }
+        if (collides(site.domain, labels)) throw new Error('This hostname belongs to Docker labels. Edit it in your Docker deployment configuration.');
         const data = await state();
+        if (site.certificate) {
+            const catalog = await discoverCertificates({ savedSites: data.sites });
+            site.certificateRef = selectCertificate(catalog.entries, site.certificate, site.domain);
+        }
         data.sites = [...data.sites.filter(s => s.domain !== site.domain), site];
         data.revision = randomUUID();
         await commit(data, labels);

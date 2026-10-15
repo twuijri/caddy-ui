@@ -12,6 +12,7 @@ services:
       - hybrid:/hybrid:ro
       - data:/data
       - logs:/logs
+      - origin-private:/certs
     ports:
       - 127.0.0.1:18980:80
       - 127.0.0.1:18981:2019
@@ -40,6 +41,7 @@ services:
       - data:/data:ro
       - logs:/logs:ro
       - ui:/etc/caddy-ui
+      - origin-public:/certs
     ports:
       - 127.0.0.1:18982:3001
   frontend:
@@ -61,3 +63,5 @@ volumes:
   data:
   logs:
   ui:
+  origin-private:
+  origin-public:

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../utils/api.js';
 import { localizeError } from '../utils/errorMessages.js';
-import { filterHybridSites, validateHybridSite } from '../utils/hybrid.js';
+import { certificateProblem, filterHybridSites, validateHybridSite } from '../utils/hybrid.js';
 import './Hybrid.css';
 
 const EMPTY_FORM = { domain: '', upstream: '', certificate: '' };
@@ -15,6 +15,9 @@ const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), select:not(:disa
 const FILE_TOO_LARGE = 'hybrid.fileTooLarge';
 const FILE_READ_ERROR = 'hybrid.fileReadError';
 const IMPORTED = 'hybrid.imported';
+const CERTIFICATE_SOURCES = ['configured', 'imported', 'acme', 'internal'];
+const MANAGED_SOURCES = ['acme', 'internal'];
+const CERTIFICATE_SOURCE_KEYS = { configured: 'hybrid.configuredCertificates', imported: 'hybrid.uploadedCertificates', acme: 'hybrid.managedCertificates', internal: 'hybrid.internalCertificates' };
 // eslint-disable-next-line i18next/no-literal-string -- Example hostname, not interface copy.
 const DOMAIN_EXAMPLE = 'app.example.com';
 // eslint-disable-next-line i18next/no-literal-string -- Example container address.
@@ -100,7 +103,7 @@ export default function Hybrid({ onUnauth }) {
     async function saveSite(event) {
         event.preventDefault();
         const site = { domain: form.domain.trim().toLowerCase(), upstream: form.upstream.trim(), certificate: form.certificate || '' };
-        const problem = validateHybridSite(site, data?.labels || []);
+        const problem = validateHybridSite(site, data?.labels || []) || (site.certificate && certificateProblem(certificates.find(cert => cert.id === site.certificate), site.domain));
         if (problem) { setValidation(problem); return; }
         await action('/hybrid/sites', 'POST', site);
     }
@@ -119,6 +122,9 @@ export default function Hybrid({ onUnauth }) {
 
     const sites = filterHybridSites(data, search, source);
     const certificates = data?.certificates || [];
+    const selectedCertificate = certificates.find(cert => cert.id === form.certificate);
+    const selectionProblem = form.certificate ? certificateProblem(selectedCertificate, form.domain) : '';
+    const managedSelection = MANAGED_SOURCES.includes(selectedCertificate?.source);
     const formError = validation ? t(validation) : actionError ? localizeError(actionError, t) : '';
     const setField = field => event => setForm(current => ({ ...current, [field]: event.target.value }));
 
@@ -160,7 +166,7 @@ export default function Hybrid({ onUnauth }) {
             </div> : <div className="table-wrap"><table className="table hybrid-table">
                 <thead><tr><th scope="col">{t('routes.domain')}</th><th scope="col">{t('hybrid.source')}</th><th scope="col">{t('routes.upstream')}</th><th scope="col">{t('hybrid.status')}</th><th scope="col">{t('hybrid.actions')}</th></tr></thead>
                 <tbody>{sites.map(site => <tr key={`${site.source}:${site.domain}`}>
-                    <td><bdi className="mono hybrid-domain" dir="ltr">{site.domain}</bdi><div className="hybrid-row-detail">{site.source === 'manual' ? t(site.certificate ? 'hybrid.customCertificate' : 'hybrid.automatic') : t('hybrid.labelManaged')}</div></td>
+                    <td><bdi className="mono hybrid-domain" dir="ltr">{site.domain}</bdi><div className="hybrid-row-detail">{site.source === 'manual' ? t(site.certificate && !MANAGED_SOURCES.includes(site.certificateSource) ? 'hybrid.customCertificate' : 'hybrid.automatic') : t('hybrid.labelManaged')}</div></td>
                     <td><span className={`badge badge-${site.source === 'manual' ? 'green' : 'blue'}`}>{t(site.source === 'manual' ? 'hybrid.manualSource' : 'hybrid.labelsSource')}</span></td>
                     <td>{site.upstream ? <bdi dir="ltr" className="mono hybrid-upstream">{site.upstream}</bdi> : <span className="cell-muted">{t('hybrid.fromLabels')}</span>}</td>
                     <td><span className={`badge badge-${STATUS_COLORS[site.status] || 'muted'}`} title={t(site.status === 'label-conflict' ? 'hybrid.conflictHelp' : site.status === 'pending' ? 'hybrid.pendingStatusHelp' : site.source === 'labels' ? 'hybrid.labelHelp' : 'hybrid.statusHelp')}>{t(STATUS_KEYS[site.status] || 'hybrid.unknown')}</span></td>
@@ -177,9 +183,11 @@ export default function Hybrid({ onUnauth }) {
                 <div><h2>{t('hybrid.certificatesTitle')} <span className="badge badge-muted">{certificates.length}</span></h2><p>{t('hybrid.certificatesHelp')}</p></div>
                 <button className="btn btn-ghost" disabled={!data || busy} onClick={() => openDialog('import')}>↑ {t('hybrid.upload')}</button>
             </div>
+            {data?.certificateWarnings?.length > 0 && <p className="hybrid-notice hybrid-notice-error" role="alert">{t('hybrid.certificateDiscoveryWarning')}</p>}
             {certificates.length === 0 ? <p className="hybrid-certificate-empty">{t('hybrid.noCertificates')}</p> : <div className="hybrid-certificate-list">{certificates.map(cert => <article className="hybrid-certificate" key={cert.id}>
-                <div className="hybrid-certificate-meta"><strong><bdi dir="ltr">{cert.names || cert.subject || cert.id}</bdi></strong><span className={`badge badge-${cert.daysRemaining <= 0 ? 'red' : cert.daysRemaining < 30 ? 'yellow' : 'green'}`}>{t('hybrid.expiry', { date: cert.validTo, days: cert.daysRemaining })}</span></div>
-                <details><summary>{t('hybrid.labelSnippet')}</summary><p>{t('hybrid.labelSnippetHelp')}</p><code dir="ltr">{`caddy.tls: "/hybrid/certs/${cert.id}/cert.pem /hybrid/certs/${cert.id}/key.pem"`}</code></details>
+                <div className="hybrid-certificate-meta"><strong><bdi dir="ltr">{cert.names || cert.subject || cert.id}</bdi></strong><span className={`badge badge-${certificateProblem(cert, '') ? 'red' : cert.daysRemaining < 30 ? 'yellow' : 'green'}`}>{certificateProblem(cert, '') ? t(certificateProblem(cert, '')) : t('hybrid.expiry', { date: cert.validTo, days: cert.daysRemaining })}</span></div>
+                <p className="hybrid-field-hint">{t(CERTIFICATE_SOURCE_KEYS[cert.source || 'imported'])}{cert.issuer ? <bdi dir="ltr"> · {cert.issuer}</bdi> : null}</p>
+                {(!cert.source || cert.source === 'imported') && <details><summary>{t('hybrid.labelSnippet')}</summary><p>{t('hybrid.labelSnippetHelp')}</p><code dir="ltr">{`caddy.tls: "/hybrid/certs/${cert.id}/cert.pem /hybrid/certs/${cert.id}/key.pem"`}</code></details>}
             </article>)}</div>}
         </div>
         {dialog && <HybridDialog title={t(dialog === 'add' ? 'routes.newRoute' : dialog === 'edit' ? 'routes.editRoute' : dialog === 'delete' ? 'hybrid.deleteTitle' : 'hybrid.upload')} busy={busy} onClose={() => setDialog(null)}>
@@ -187,12 +195,22 @@ export default function Hybrid({ onUnauth }) {
                 <p className="hybrid-form-intro">{t('hybrid.manualHelp')}</p>
                 <div className="field"><label htmlFor="hybrid-domain">{t('routes.domain')}</label><input id="hybrid-domain" dir="ltr" autoComplete="off" required value={form.domain} disabled={dialog === 'edit' || busy} onChange={setField('domain')} placeholder={DOMAIN_EXAMPLE} aria-describedby="hybrid-domain-help" /><p className="hybrid-field-hint" id="hybrid-domain-help">{t(dialog === 'edit' ? 'hybrid.renameHelp' : 'hybrid.domainHelp')}</p></div>
                 <div className="field"><label htmlFor="hybrid-upstream">{t('hybrid.upstream')}</label><input id="hybrid-upstream" dir="ltr" autoComplete="off" required value={form.upstream} disabled={busy} onChange={setField('upstream')} placeholder={UPSTREAM_EXAMPLE} aria-describedby="hybrid-network-help" /><p className="hybrid-field-hint" id="hybrid-network-help">{t('hybrid.networkHelp')}</p></div>
-                <div className="field"><label htmlFor="hybrid-certificate">{t('hybrid.certificate')}</label><select id="hybrid-certificate" value={form.certificate || ''} disabled={busy} onChange={setField('certificate')}>
+                <div className="field"><label htmlFor="hybrid-certificate">{t('hybrid.certificate')}</label><select id="hybrid-certificate" value={form.certificate || ''} disabled={busy} onChange={setField('certificate')} aria-describedby="hybrid-certificate-help">
                     <option value="">{t('hybrid.automatic')}</option>
-                    {certificates.map(cert => <option key={cert.id} value={cert.id} disabled={cert.daysRemaining < 0}>{cert.names || cert.subject || cert.id}</option>)}
-                </select><p className="hybrid-field-hint">{t('hybrid.certificateHelp')}</p></div>
+                    {form.certificate && !selectedCertificate && <option value={form.certificate} disabled>{t('hybrid.certificateUnavailable')}</option>}
+                    {CERTIFICATE_SOURCES.map(source => {
+                        const group = certificates.filter(cert => (cert.source || 'imported') === source);
+                        return group.length > 0 && <optgroup key={source} label={t(CERTIFICATE_SOURCE_KEYS[source])}>{group.map(cert => {
+                            const problem = certificateProblem(cert, form.domain);
+                            return <option key={cert.id} value={cert.id} disabled={!!problem}>{cert.names || cert.subject || cert.id}{problem ? ` — ${t(problem)}` : ''}</option>;
+                        })}</optgroup>;
+                    })}
+                </select><p className="hybrid-field-hint" id="hybrid-certificate-help">{t(managedSelection ? 'hybrid.managedCertificateHelp' : 'hybrid.certificateHelp')}</p>
+                    {selectionProblem && <p className="hybrid-form-error" role="alert">{t(selectionProblem)}</p>}
+                    {data?.certificateWarnings?.length > 0 && <p className="hybrid-form-error">{t('hybrid.certificateDiscoveryWarning')}</p>}
+                </div>
                 {formError && <p className="hybrid-form-error" role="alert">{formError}</p>}
-                <div className="btn-row flex-end hybrid-form-actions"><button className="btn btn-ghost" type="button" disabled={busy} onClick={() => setDialog(null)}>{t('common.cancel')}</button><button className="btn btn-primary" disabled={busy} type="submit">{t(busy ? 'common.saving' : 'common.save')}</button></div>
+                <div className="btn-row flex-end hybrid-form-actions"><button className="btn btn-ghost" type="button" disabled={busy} onClick={() => setDialog(null)}>{t('common.cancel')}</button><button className="btn btn-primary" disabled={busy || !!selectionProblem} type="submit">{t(busy ? 'common.saving' : 'common.save')}</button></div>
             </form>}
             {dialog === 'delete' && <form onSubmit={event => { event.preventDefault(); action(`/hybrid/sites/${encodeURIComponent(form.domain)}`, 'DELETE'); }}>
                 <p className="hybrid-form-intro">{t('hybrid.confirmDelete', { domain: form.domain })}</p>

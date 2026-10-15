@@ -36,7 +36,29 @@ key, and writes new versioned files with owner-only permissions. Private keys
 are not encrypted at rest; protect and back up the Docker volume. Importing
 does not assign the certificate. Manual sites select it from the dropdown.
 For label-owned sites, copy the displayed `caddy.tls` paths to their stack.
-Existing `/certs/i3u.us.pem` binding continues to work unchanged.
+The dropdown also discovers certificates referenced by Caddy's `load_files`
+configuration (including mounted Cloudflare Origin certificates). Mount their
+**public certificate only** into the backend at the same absolute path used by
+Caddy, read-only. Caddy still reads the private key from its own mount; no
+backend key mount or re-upload is needed. Existing certificate/key references
+are resolved server-side and saved with the manual site, so they survive a
+restart or removal of the original label site. Keep those gateway mounts.
+
+Certificates found under `CADDY_DATA_PATH/certificates` appear in separate
+Caddy-managed and internal-CA groups. Selecting one preserves automatic
+management rather than loading or copying storage files as static certificates.
+It does **not pin a particular certificate, issuer or fingerprint**: Caddy
+selects a matching certificate or obtains one as needed. Internal-CA selections
+use `tls internal` and require clients to trust that CA. Automatic HTTPS can
+reuse a matching manually loaded certificate; it does not force new issuance.
+
+Expired, not-yet-valid, unreadable or hostname-mismatched certificates cannot
+be selected. Dates and X.509 hostname coverage are rechecked server-side on
+save, independently of the UI. Unreadable configured public files remain
+visible with a mount hint. This catalog covers PEM imports, `load_files` and
+the mounted filesystem storage, not arbitrary remote/custom certificate
+storage or in-memory PEM loaders. Cloudflare Origin certificates are trusted
+by Cloudflare, not directly by ordinary browsers: use them behind its proxy.
 
 The TLS page and notification monitor inspect loaded certificate files on the
 origin, including Cloudflare Origin CA, not Cloudflare's public edge certificate.
@@ -73,13 +95,18 @@ Run backend/frontend tests and lint, then:
 ```sh
 docker compose -p caddy-hybrid-test -f backend/test/compose.hybrid-integration.yaml up -d --build
 node scripts/test-hybrid.mjs
+node scripts/test-hybrid-certificates.mjs
 ```
 
 The isolated test binds only localhost ports 18980–18984 and does not replace
 an existing gateway. The script checks authentication, forbidden legacy writes,
 label ownership, invalid PEM rejection, import, live certificate inspection,
 manual/label HTTP traffic, gateway restart persistence, conflict reconciliation,
-and deletion without losing label routes. Its credentials are test-only.
+and deletion without losing label routes. The certificate-selection script
+additionally verifies a configured wildcard with its private key absent from
+the backend, the actual served fingerprint, hostname mismatch rejection, and
+selection persistence after gateway/backend restart and label-site removal.
+Its credentials are test-only.
 UI browser interaction must be checked separately; an API integration test is
 not a substitute for visual QA. Stop the test stack without deleting volumes:
 
