@@ -19,3 +19,13 @@ export function validateHybridSite(site, labels) {
     if (labels.some(host => host === site.domain || (host.startsWith('*.') && site.domain.endsWith(host.slice(1)) && site.domain.split('.').length === host.split('.').length))) return 'hybrid.conflictHelp';
     return '';
 }
+
+export function certificateProblem(cert, domain, now = Date.now()) {
+    if (!cert || cert.reason === 'unavailable') return 'hybrid.certificateUnavailable';
+    if (cert.reason === 'expired' || (cert.validTo && Date.parse(cert.validTo) <= now) || cert.daysRemaining < 0) return 'hybrid.certificateExpired';
+    if (cert.reason === 'not-yet-valid' || (cert.validFrom && Date.parse(cert.validFrom) > now)) return 'hybrid.certificateNotYetValid';
+    const host = domain.trim().toLowerCase();
+    // Server-side X.509 validation is authoritative. Only preflight known SANs.
+    if (host && cert.dnsNames && !cert.dnsNames.some(name => name === host || (name.startsWith('*.') && host.endsWith(name.slice(1)) && host.split('.').length === name.split('.').length))) return 'hybrid.certificateMismatch';
+    return '';
+}

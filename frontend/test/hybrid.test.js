@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { filterHybridSites, validateHybridSite } from '../src/utils/hybrid.js';
+import { certificateProblem, filterHybridSites, validateHybridSite } from '../src/utils/hybrid.js';
 
 const site = { domain: 'app.example.com', upstream: 'app:8080', certificate: '' };
+
+describe('Hybrid certificate choices', () => {
+    const cert = { dnsNames: ['*.example.com', 'example.com'], validFrom: '2026-01-01', validTo: '2027-01-01', daysRemaining: 1 };
+    const now = Date.parse('2026-06-01');
+    it('matches exact SANs and single-level wildcards only', () => {
+        for (const host of ['', 'example.com', 'app.example.com', ' APP.EXAMPLE.COM ']) expect(certificateProblem(cert, host, now)).toBe('');
+        for (const host of ['a.b.example.com', 'elsewhere.com']) expect(certificateProblem(cert, host, now)).toBe('hybrid.certificateMismatch');
+    });
+    it('explains missing, expired and future certificates', () => {
+        expect(certificateProblem(null, '', now)).toBe('hybrid.certificateUnavailable');
+        expect(certificateProblem({ ...cert, reason: 'unavailable' }, '', now)).toBe('hybrid.certificateUnavailable');
+        expect(certificateProblem(cert, '', Date.parse(cert.validTo))).toBe('hybrid.certificateExpired');
+        expect(certificateProblem(cert, '', Date.parse(cert.validFrom) - 1)).toBe('hybrid.certificateNotYetValid');
+        expect(certificateProblem({ ...cert, daysRemaining: 0 }, '', Date.parse(cert.validTo) - 1)).toBe('');
+    });
+});
 
 describe('Hybrid source presentation', () => {
     const data = { sites: [{ ...site, status: 'pending' }], labels: ['app.example.com', 'external.example.com'] };
