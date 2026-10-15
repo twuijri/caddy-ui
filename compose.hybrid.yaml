@@ -35,7 +35,8 @@ services:
     networks: [docker-read]
 
   caddy-ui-backend:
-    image: ghcr.io/twuijri/caddy-ui-backend:${CADDY_UI_TAG:-hybrid-v0.1.0}
+    image: ghcr.io/twuijri/caddy-ui-backend:${CADDY_UI_TAG:-hybrid-latest}
+    pull_policy: always
     restart: unless-stopped
     environment:
       TZ: Asia/Riyadh
@@ -59,7 +60,8 @@ services:
     depends_on: [caddy-gateway, docker-reader]
 
   caddy-ui-frontend:
-    image: ghcr.io/twuijri/caddy-ui-frontend:${CADDY_UI_TAG:-hybrid-v0.1.0}
+    image: ghcr.io/twuijri/caddy-ui-frontend:${CADDY_UI_TAG:-hybrid-latest}
+    pull_policy: always
     restart: unless-stopped
     labels:
       caddy: ${CADDY_UI_DOMAIN:-caddy-ui.i3u.us}

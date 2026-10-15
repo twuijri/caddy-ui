@@ -32,6 +32,7 @@ import { getUpdateInfo, noteFrontendVersion, startUpdateCheck } from './updateCh
 import { startUpstreamMonitor } from './upstreamMonitor.js';
 import { getEnabledLanguages } from './languages.js';
 import hybridRouter, { hybridEnabled, hybridGuard, startHybridReconciler } from './hybrid.js';
+import { certificateUploadBody } from './middleware/certificateUpload.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,6 +44,9 @@ if (hybridEnabled() && (!process.env.CADDY_UI_USER || !process.env.CADDY_UI_PASS
 
 app.set('trust proxy', 1);
 app.use(cors());
+// Parse larger certificate payloads only after authentication, before the
+// default 100 KiB parser. Other API routes keep their existing limits.
+app.use('/api/hybrid/certificates', certificateUploadBody);
 app.use(express.json());
 app.use(express.text({ type: 'text/plain' }));
 app.use(diagnosticMiddleware);

@@ -1,5 +1,22 @@
-import { describe, it, expect } from 'vitest';
-import { validateSite, labelHosts, collides, renderState, hybridGuard, serial, certificatePair } from '../src/hybrid.js';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { validateSite, labelHosts, collides, renderState, hybridEnabled, hybridGuard, serial, certificatePair } from '../src/hybrid.js';
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe('hybrid opt-in', () => {
+    it.each([undefined, '', 'false', '1', 'TRUE', 'True', ' true '])('stays disabled for %s', value => {
+        vi.stubEnv('CADDY_UI_HYBRID', value);
+        expect(hybridEnabled()).toBe(false);
+        const next = vi.fn();
+        hybridGuard({ method: 'POST', path: '/tls/cert' }, {}, next);
+        expect(next).toHaveBeenCalledOnce();
+    });
+
+    it('requires the exact opt-in value true', () => {
+        vi.stubEnv('CADDY_UI_HYBRID', 'true');
+        expect(hybridEnabled()).toBe(true);
+    });
+});
 
 describe('hybrid ownership and safe rendering', () => {
     it('reserves stopped container labels, numbered labels, wildcard names and normalizes schemes', () => {
@@ -25,14 +42,13 @@ describe('hybrid ownership and safe rendering', () => {
         expect(text).toContain('vars ui_revision abc');
     });
     it('blocks every legacy configuration write in hybrid mode', () => {
-        process.env.CADDY_UI_HYBRID = 'true';
+        vi.stubEnv('CADDY_UI_HYBRID', 'true');
         for (const path of ['/routes', '/caddyfile/reloads', '/metrics/config', '/logs/config', '/tls/cert']) {
             let code;
             const res = { status(c) { code = c; return this; }, json() {} };
             hybridGuard({ method: 'POST', path }, res, () => { throw new Error('write escaped guard'); });
             expect(code).toBe(409);
         }
-        delete process.env.CADDY_UI_HYBRID;
     });
     it('continues serial writes after failure', async () => {
         await expect(serial(() => { throw new Error('failure'); })).rejects.toThrow();

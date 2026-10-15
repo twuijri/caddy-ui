@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, rename, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { X509Certificate, createPrivateKey, randomUUID } from 'node:crypto';
 import { caddyGet } from './caddy.js';
+import { validCertificateFiles } from './middleware/certificateUpload.js';
 
 export const hybridEnabled = () => process.env.CADDY_UI_HYBRID === 'true';
 const root = () => '/hybrid';
@@ -158,7 +159,8 @@ router.delete('/sites/:domain', async (req, res) => {
     res.status(202).json({ ok: true, status: 'pending' });
 });
 router.post('/certificates', async (req, res) => {
-    const { certificate, privateKey } = req.body;
+    const { certificate, privateKey } = req.body || {};
+    if (!validCertificateFiles(certificate, privateKey)) return res.status(400).json({ error: 'Certificate and private key must each be nonempty PEM text no larger than 1 MiB' });
     // Never include PEM contents or crypto parse errors in logs/responses.
     try { certificatePair(certificate, privateKey); } catch { return res.status(400).json({ error: 'Invalid, expired, not-yet-valid or mismatched certificate/key pair' }); }
     const id = randomUUID();

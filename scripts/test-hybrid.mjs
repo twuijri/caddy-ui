@@ -44,6 +44,12 @@ for (const endpoint of ['/routes', '/caddyfile/reloads', '/metrics/config', '/lo
 await api('/hybrid/sites', 'POST', { domain: 'label.hybrid.test', upstream: 'upstream:8080' }, 400);
 const pem = readFileSync(join(path, 'cert.pem'), 'utf8');
 const key = readFileSync(join(path, 'key.pem'), 'utf8');
+const largeUpload = await fetch('http://127.0.0.1:18983/api/hybrid/certificates', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ certificate: pem + ' '.repeat(600000), privateKey: key + ' '.repeat(600000) }),
+});
+assert.equal(largeUpload.status, 201, 'Large valid upload passes through nginx and authenticated JSON parser');
+console.log('PASS certificate upload larger than 1 MiB through frontend proxy');
 await api('/hybrid/certificates', 'POST', { certificate: pem, privateKey: 'invalid' }, 400);
 const cert = await api('/hybrid/certificates', 'POST', { certificate: pem, privateKey: key }, 201);
 const form = { domain: 'manual.hybrid.test', upstream: 'upstream:8080', certificate: cert.id };
