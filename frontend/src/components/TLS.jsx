@@ -5,7 +5,7 @@ import { apiFetch, getToken, getInstanceId } from "../utils/api.js";
 import { currentLocale } from "../utils/format.js";
 import { stateNotificationKey } from "../utils/notificationCenter.js";
 
-export default function TLS({ toast, onUnauth, confirm }) {
+export default function TLS({ toast, onUnauth, confirm, readOnly = false }) {
     const { t } = useTranslation();
     const [certs, setCerts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -193,7 +193,7 @@ export default function TLS({ toast, onUnauth, confirm }) {
                                 {sorted.map((cert, i) => (
                                     <tr key={i} style={{ opacity: cert.status === 'orphaned' || cert.status === 'superseded' ? 0.6 : 1 }}>
                                         <td className="mono">{cert.domain}</td>
-                                        <td><span className={`badge ${cert.issuer === 'acme' ? 'badge-blue' : 'badge-muted'}`}>{cert.issuer === 'acme' ? "Let's Encrypt" : t("tls.internal")}</span></td>
+                                        <td><span className={`badge ${cert.issuer === 'acme' ? 'badge-blue' : 'badge-muted'}`}>{cert.issuer === 'acme' ? "Let's Encrypt" : cert.issuer === 'imported' ? t('tls.imported') : t("tls.internal")}</span></td>
                                         <td>
                                             <div className="mono" style={{ fontSize: 12 }}>{formatDate(cert.validTo)}</div>
                                             {expiryBar(cert)}
@@ -203,7 +203,7 @@ export default function TLS({ toast, onUnauth, confirm }) {
                                         </td>
                                         <td>{statusBadge(cert)}</td>
                                         <td className="col-actions-sm">
-                                            {isDeletable(cert) && <button className="btn btn-danger btn--icon" onClick={() => deleteCert(cert)}>✕</button>}
+                                            {!readOnly && isDeletable(cert) && <button className="btn btn-danger btn--icon" onClick={() => deleteCert(cert)}>✕</button>}
                                         </td>
                                     </tr>
                                 ))}

@@ -312,7 +312,7 @@ export default function App() {
                                 <Route path="/hybrid" element={<Hybrid onUnauth={onUnauth} />} />
                                 <Route path="/caddyfile" element={<CaddyFile toast={toast} onUnauth={onUnauth} theme={theme} confirm={confirm} />} />
                                 <Route path="/routes" element={<RoutesPage readOnly={status?.hybrid} toast={toast} onUnauth={onUnauth} confirm={confirm} theme={theme} routeColumns={routeColumns} onRouteColumnsChange={changeRouteColumns} routeChecks={routeChecks} routeCheckExcludes={routeCheckExcludes} />} />
-                                <Route path="/tls" element={<TLS toast={toast} onUnauth={onUnauth} confirm={confirm} />} />
+                                <Route path="/tls" element={<TLS readOnly={status?.hybrid} toast={toast} onUnauth={onUnauth} confirm={confirm} />} />
                                 <Route path="/logs" element={<Logs toast={toast} onUnauth={onUnauth} noInstances={noInstances} />} />
                                 <Route path="/metrics" element={<Metrics toast={toast} onUnauth={onUnauth} routeChecks={routeChecks} onRouteChecksChange={changeRouteChecks} routeCheckExcludes={routeCheckExcludes} onRouteCheckExcludesChange={changeRouteCheckExcludes} />} />
                                 <Route path="/notifications" element={<Notifications toast={toast} onUnauth={onUnauth} />} />

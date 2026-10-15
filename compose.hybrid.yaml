@@ -55,7 +55,7 @@ services:
       - caddy_data:/data:ro
       - caddy_logs:/logs:ro
       - /root/i3u.us.pem:/certs/i3u.us.pem:ro
-    networks: [caddy-admin, docker-read, caddy-ui]
+    networks: [caddy-admin, docker-read, caddy-ui, proxy]
     depends_on: [caddy-gateway, docker-reader]
 
   caddy-ui-frontend:
