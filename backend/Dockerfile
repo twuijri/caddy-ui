@@ -2,6 +2,9 @@ FROM node:24-alpine
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
+# Fork review distribution only: expose the Arabic draft in the language picker.
+# An explicit deployment environment variable can override this default.
+ENV CADDY_UI_ADDITIONAL_LANGUAGES=ar
 
 RUN apk add --no-cache docker-cli
 

@@ -15,6 +15,22 @@ export const availableLocales = [
         .filter(Boolean),
 ];
 
+export function languageName(locale) {
+    try {
+        return new Intl.DisplayNames([locale], { type: 'language' }).of(locale);
+    } catch {
+        return locale.toUpperCase();
+    }
+}
+
+// Keep the browser's writing direction in sync even on the login screen,
+// during initial locale detection, and when falling back to English.
+i18n.on('languageChanged', language => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.lang = language;
+    document.documentElement.dir = i18n.dir(language);
+});
+
 i18n
     .use(initReactI18next)
     .init({

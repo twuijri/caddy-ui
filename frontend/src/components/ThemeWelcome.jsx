@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { languageName } from '../i18n/index.js';
 
 // eslint-disable-next-line i18next/no-literal-string -- Brand text in the theme preview
 const BRAND_CADDY = "caddy";
@@ -129,7 +130,7 @@ export default function ThemeWelcome({ themes, languages, language, onLanguageCh
                                 ))}
                             </div>
                         </div>
-                        <div style={{
+                        <div dir="ltr" style={{
                             background: activeTheme.vars['--editor-bg'],
                             border: `1px solid ${activeTheme.vars['--editor-border']}`,
                             borderRadius: 4,
@@ -154,7 +155,7 @@ export default function ThemeWelcome({ themes, languages, language, onLanguageCh
                             >
                                 {languages.map(lang => (
                                     <option key={lang} value={lang}>
-                                        {lang.toUpperCase()}
+                                        {languageName(lang)}
                                     </option>
                                 ))}
                             </select>

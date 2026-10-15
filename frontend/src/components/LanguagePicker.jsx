@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { languageName } from '../i18n/index.js';
 
 export default function LanguagePicker({
     languages,
@@ -10,7 +11,7 @@ export default function LanguagePicker({
     return (
         <div className="theme-picker language-picker">
             <span className="theme-toggle language-picker-value">
-                {language.toUpperCase()}
+                {languageName(language)}
             </span>
 
             <span className="theme-picker-trigger language-picker-arrow">
@@ -26,7 +27,7 @@ export default function LanguagePicker({
             >
                 {languages.map(lang => (
                     <option key={lang} value={lang}>
-                        {lang.toUpperCase()}
+                        {languageName(lang)}
                     </option>
                 ))}
             </select>
