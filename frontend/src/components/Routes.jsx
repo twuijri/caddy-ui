@@ -152,15 +152,15 @@ function EditModal({ route, initialNote, isCaddyfileManaged, siteBlockFailed, in
                         <div className="modal-section-divider" />
                         <div className="field">
                             <label>{t("routes.domain")}</label>
-                            <input value={form.domain} onChange={set("domain")} placeholder={DOMAIN_PLACEHOLDER} disabled={!form._id} />
+                            <input dir="ltr" value={form.domain} onChange={set("domain")} placeholder={DOMAIN_PLACEHOLDER} disabled={!form._id} />
                         </div>
                         <div className="field">
                             <label>{t("routes.upstream")}</label>
-                            <input value={form.upstream} onChange={set("upstream")} placeholder="192.168.4.88:8080" />
+                            <input dir="ltr" value={form.upstream} onChange={set("upstream")} placeholder="192.168.4.88:8080" />
                         </div>
                         <div className="field">
                             <label>{t("routes.stripPrefixOptional")}</label>
-                            <input value={form.stripPrefix} onChange={set("stripPrefix")} placeholder="/api" />
+                            <input dir="ltr" value={form.stripPrefix} onChange={set("stripPrefix")} placeholder="/api" />
                         </div>
                     </>
                 )}
@@ -190,15 +190,15 @@ function NewRouteModal({ onSave, onClose }) {
                 <div className="modal-title">{t("routes.newRoute")}</div>
                 <div className="field">
                     <label>{t("routes.domain")}</label>
-                    <input value={form.domain} onChange={set("domain")} placeholder={DOMAIN_PLACEHOLDER} autoFocus />
+                    <input dir="ltr" value={form.domain} onChange={set("domain")} placeholder={DOMAIN_PLACEHOLDER} autoFocus />
                 </div>
                 <div className="field">
                     <label>{t("routes.upstream")}</label>
-                    <input value={form.upstream} onChange={set("upstream")} placeholder="192.168.4.88:8080" />
+                    <input dir="ltr" value={form.upstream} onChange={set("upstream")} placeholder="192.168.4.88:8080" />
                 </div>
                 <div className="field">
                     <label>{t("routes.stripPrefixOptional")}</label>
-                    <input value={form.stripPrefix} onChange={set("stripPrefix")} placeholder="/api" />
+                    <input dir="ltr" value={form.stripPrefix} onChange={set("stripPrefix")} placeholder="/api" />
                 </div>
                 <div className="btn-row flex-end" style={{ marginTop: 20 }}>
                     <button className="btn btn-ghost" onClick={onClose}>{t("common.cancel")}</button>

@@ -37,4 +37,19 @@ describe('i18n integration', () => {
             expect(probe).not.toBe('test.languageLoaded');
         }
     });
+
+    it('switches document direction with Arabic and restores it on fallback', async () => {
+        const documentElement = {};
+        vi.stubGlobal('document', { documentElement });
+
+        await loadLocale('ar');
+
+        expect(documentElement).toMatchObject({ lang: 'ar', dir: 'rtl' });
+        for (const count of [0, 1, 2, 3, 11, 100]) {
+            expect(i18n.t('logs.lineCount', { count })).toBe(`عدد الأسطر: ${count}`);
+        }
+
+        await loadLocale('unknown-locale');
+        expect(documentElement).toMatchObject({ lang: 'en', dir: 'ltr' });
+    });
 });

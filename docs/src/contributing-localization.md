@@ -59,6 +59,15 @@ Set `CADDY_UI_ADDITIONAL_LANGUAGES` in the backend environment to include your
 language code, restart the backend, and select the language in the UI. A matching
 locale file must exist for that language to be available.
 
+### Arabic
+
+The Arabic catalog (`ar`) follows the same English key schema and existing
+language picker. Enable it with `CADDY_UI_ADDITIONAL_LANGUAGES=ar` and select
+Arabic in the picker; English remains available and is the fallback.
+The interface follows right-to-left direction while code, logs and technical
+identifiers retain left-to-right direction. No reverse-proxy deployment mode
+or Docker integration is required, and language defaults are unchanged.
+
 ### Visual translation playground
 
 The playground is a lightweight contributor tool. From `frontend/`:
